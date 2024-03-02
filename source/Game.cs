@@ -55,7 +55,6 @@ namespace GoSharp
         public static readonly Point PassMove = new(-1, -1);
 
         private readonly List<Variation> _moves = [];
-        private Variation? _movesRedo = null;
 
         private readonly Dictionary<Content, int> _captures = new()
         {
@@ -88,11 +87,6 @@ namespace GoSharp
         /// for setup positions.
         /// </summary>
         public Point? Move { get; private set; }
-
-        /// <summary>
-        /// 打った数
-        /// </summary>
-        public int Count => _moves.Count;
 
         /// <summary>
         /// Returns a Dictionary&lt;Content, Group&gt; with the setup moves
@@ -166,6 +160,21 @@ namespace GoSharp
         public int BlackCaptures => _captures[Content.Black];
 
         /// <summary>
+        /// 連結リストとして、1つ前のGame、現在のGame、1つ先のGameを再現し、その現在値を返す。
+        /// </summary>
+        public int Position { get; private set; }
+
+        /// <summary>
+        /// 1手前の情報。双方向連結リストとして表現
+        /// </summary>
+        private readonly Game? _previous;
+
+        /// <summary>
+        /// 2手先の情報。双方向連結リストとして表現
+        /// </summary>
+        private Game? _subsequent;
+
+        /// <summary>
         /// Constructs a root game object based on a GameInfo object.
         /// </summary>
         /// <param name="gi">The GameInfo object.</param>
@@ -176,9 +185,9 @@ namespace GoSharp
             GameInfo = gi;
             InitializeFromGameInfo();
 
-            // 以下の2つのエラーの解決方法がない？
-            //   CS8618 null 非許容の フィールド 'Board' には、コンストラクターの終了時にnull 以外の値が入っていなければなりません。
-            //   CS8618 null 非許容の フィールド 'Root' には、コンストラクターの終了時にnull 以外の値が入っていなければなりません。
+            Position = 0;
+            _previous = null;
+            _subsequent = null;
         }
 
         /// <summary>
@@ -190,14 +199,12 @@ namespace GoSharp
         public Game(SGFGameTree sgfGameTree)
 #pragma warning restore CS8618 // null 非許容のフィールドには、コンストラクターの終了時に null 以外の値が入っていなければなりません。Null 許容として宣言することをご検討ください。
         {
-            //GameInfo = CreateGameInfoFromSGF(sgfGameTree);
-            //InitializeFromGameInfo();
             GameInfo = new GameInfo() { FreePlacedHandicap = true };
             CreateGameTree(sgfGameTree, this);
 
-            // 以下の2つのエラーの解決方法がない？
-            //   CS8618 null 非許容の フィールド 'Board' には、コンストラクターの終了時にnull 以外の値が入っていなければなりません。
-            //   CS8618 null 非許容の フィールド 'Root' には、コンストラクターの終了時にnull 以外の値が入っていなければなりません。
+            Position = 0;
+            _previous = null;
+            _subsequent = null;
         }
 
         /// <summary>
@@ -214,6 +221,11 @@ namespace GoSharp
             _captures[Content.Black] = fromGame._captures[Content.Black];
             foreach (var p in fromGame._superKoSet) _superKoSet.Add(p);
             Root = fromGame.Root;
+
+            Position = fromGame.Position + 1;
+            _previous = fromGame;
+            _subsequent = null;
+            fromGame._subsequent = this;
         }
 
         private void InitializeFromGameInfo()
@@ -326,39 +338,28 @@ namespace GoSharp
             var g = new Game(this);
             legal = g.InternalMakeMove(x, y);
             _moves.Add(new Variation(new Point(x, y), g));
-            _movesRedo = null;
             return g;
         }
 
         /// <summary>
         /// 1手戻る。
         /// </summary>
-        public Game Undo()
+        public Game? Undo()
         {
-            //var count = _moves.Count;
-            //if (count >= 2)
-            //{
-            //    var removeMove = _moves[count - 1];
-            //    var game = _moves[count - 2].Game;
-            //    game._movesRedo = removeMove;
-            //    return game;
-            //}
-            return this;
+            if (_previous != null)
+            {
+                _previous._subsequent = this;
+                return _previous;
+            }
+            return null;
         }
 
         /// <summary>
         /// 戻した手を1手やり直す。
         /// </summary>
-        public Game Redo()
+        public Game? Redo()
         {
-            //if (_movesRedo != null)
-            //{
-            //    var move = _movesRedo;
-            //    _movesRedo = null;
-            //    _moves.Add(move);
-            //    return move.Game;
-            //}
-            return this;
+            return _subsequent;
         }
 
         /// <summary>
@@ -370,7 +371,6 @@ namespace GoSharp
         {
             var g = new Game(this);
             _moves.Add(new Variation(Game.PassMove, g));
-            _movesRedo = null;
             return g;
         }
 
