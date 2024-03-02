@@ -1,6 +1,16 @@
 GoSharp
 =======
 
+囲碁のC#用ライブラリ
+MITライセンスのコードをフォークして .NET8 用に書き換えたものになります。
+  
+今後以下の機能を追加していく予定です。
+1. Undo
+2. Redo
+3. 終局機能 (パスとは別で実装予定)
+
+=======
+
 A C# class library for the game of Go (a.k.a Igo, Weiqi, Baduk).
 
 ## Table of Content
