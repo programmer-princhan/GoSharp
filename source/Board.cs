@@ -8,8 +8,8 @@ namespace GoSharp
     public class Board
     {
         private readonly Content[,] _content;
-        private readonly Group[,] _groupCache2;
         private readonly List<Group> _groupCache = [];
+        private Group[,] _groupCache2;
         private bool _IsScoring = false;
         private int? _Hash = null;
 
@@ -255,7 +255,6 @@ namespace GoSharp
         /// <returns>A group object containing a list of points.</returns>
         public Group GetGroupAt(int x, int y)
         {
-            // TODO: ありえないはず
             //if (_groupCache == null)
             //{
             //    _groupCache = new List<Group>();
@@ -270,6 +269,7 @@ namespace GoSharp
             }
             return group;
         }
+
         private void RecursiveAddPoint(Group group, int x, int y)
         {
             if (GetContentAt(x, y) == group.Content)
@@ -429,6 +429,7 @@ namespace GoSharp
         private void ClearGroupCache()
         {
             _groupCache.Clear();
+            _groupCache2 = new Group[SizeX, SizeY];
         }
 
         private int GetContentHashCode()
@@ -537,6 +538,45 @@ namespace GoSharp
                     {
                         if (_content[i, j] == Content.Empty)
                             yield return new Point(i, j);
+                    }
+                }
+            }
+        }
+
+        public IEnumerable<(int X, int Y, bool Empty, bool Black, bool Scoring, bool Dead, bool TerritoryEmpty, bool TerritoryBlack)> All
+        {
+            get
+            {
+                for (int x = 0; x < SizeX; x++)
+                {
+                    for (int y = 0; y < SizeY; y++)
+                    {
+                        bool empty;
+                        bool black;
+                        bool scoring;
+                        bool dead;
+                        bool territoryEmpty;
+                        bool territoryBlack;
+                        if (_IsScoring == true)
+                        {
+                            var group = _groupCache2[x, y];
+                            empty = group.Content == Content.Empty;
+                            black = group.Content == Content.Black;
+                            scoring = true;
+                            dead = group.IsDead;
+                            territoryEmpty = empty && group.Territory == Content.Empty;
+                            territoryBlack = group.Territory == Content.Black;
+                        }
+                        else
+                        {
+                            empty = _content[x, y] == Content.Empty;
+                            black = _content[x, y] == Content.Black;
+                            scoring = false;
+                            dead = false;
+                            territoryEmpty = false;
+                            territoryBlack = false;
+                        }
+                        yield return (x, y, empty, black, scoring, dead, territoryEmpty, territoryBlack);
                     }
                 }
             }
