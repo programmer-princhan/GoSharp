@@ -1,5 +1,4 @@
-﻿
-namespace GoSharp
+﻿namespace GoSharp
 {
     /// <summary>
     /// Encapsulates a board position, without any game context. This object also
@@ -41,7 +40,11 @@ namespace GoSharp
                 {
                     _IsScoring = value;
                     ClearGroupCache();
-                    if (value) CalcTerritory();
+                    if (value)
+                    {
+                        CalcTerritory();
+                        CalcDead();
+                    }
                 }
             }
         }
@@ -377,6 +380,7 @@ namespace GoSharp
             if (!IsScoring) return;
             ClearGroupCache();
             CalcTerritory();
+            CalcDead();
         }
 
         internal List<Group> GetCapturedGroups(int x, int y)
@@ -540,6 +544,76 @@ namespace GoSharp
                             yield return new Point(i, j);
                     }
                 }
+            }
+        }
+
+        public void CalcDead()
+        {
+            if (!IsScoring) return;
+
+            // 一度地の計算を行う。
+            _ = Territory;
+
+            // スキップ対象
+            var skip = new HashSet<Group>();
+
+            // 計算対象の Group をリスト化
+            //   以下の Group 以外を対象として計算する。
+            //     1. 地として対象となった Group
+            //     2. 地と隣接している Group
+            var cash = _groupCache.Where(g => g.Content != Content.Empty).ToHashSet();
+            var temp1 = _groupCache.Where(g => g.Territory != Content.Empty).ToHashSet();
+            var temp2 = temp1.SelectMany(g => g.Neighbours).Select(GetGroupAt).ToHashSet();
+            cash = cash.Except(temp1).Except(temp2).OrderByDescending(g => g.Count).ToHashSet();
+
+            // 取られているかを Group ごとにチェックする。
+            foreach (var g1 in cash)
+            {
+                if (skip.Contains(g1)) continue;
+
+                var next = false;
+                var opp = g1.Content == Content.Black ? Content.White : Content.Black;
+                var temp = new HashSet<Group> { g1 };
+                var block = new HashSet<Group> { g1 };
+
+                // 同色とEmptyを1つの Group として判定するために block に group を追加する
+                do
+                {
+                    var count1 = block.Count;
+
+                    temp = temp
+                        .SelectMany(g => g.Neighbours)
+                        .Select(GetGroupAt)
+                        .Where(g => g.Content != opp)
+                        .ToHashSet();
+
+                    foreach (var g in temp)
+                    {
+                        block.Add(g);
+                    }
+
+                    var count2 = block.Count;
+                    next = count1 < count2;
+                } while (next);
+
+                // block と隣接した座標から block の座標を差し引いた座標の Group を取得する。
+                var a = block.SelectMany(g => g.Neighbours).ToHashSet();
+                var b = block.SelectMany(g => g.Points).ToHashSet();
+                var c = a.Except(b).Select(GetGroupAt).ToHashSet();
+
+                // block を囲っている Content が全て反対色の石の場合は
+                // block 内の色石は全て死に石として判定する。
+                if (c.All(g => g.Content == opp))
+                {
+                    var deads = block.Where(g => g.Content == g1.Content).ToList();
+                    foreach (var g in deads)
+                    {
+                        g.IsDead = true;
+                    }
+                }
+
+                // 計算した Group はスキップ対象として登録する。
+                block.Concat(c).ToList().ForEach(g => skip.Add(g));
             }
         }
 

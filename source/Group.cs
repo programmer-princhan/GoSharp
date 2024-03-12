@@ -16,6 +16,8 @@
         private readonly HashSet<Point> _points = [];
         private readonly HashSet<Point> _neighbours = [];
 
+        public int Count => _points.Count;
+
         /// <summary>
         /// Gets the content of the group.
         /// </summary>
